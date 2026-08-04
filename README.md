@@ -24,12 +24,12 @@ WinSCP与DB Browser for SQLite下载: [https://wwbwa.lanzoue.com/ipOoc3mlazpc](h
 ## 函数意义解释
 以下是失物招领管理系统客户端中所有函数的意义解释，按模块划分。(部分内容已过时，仅供参考)(更新时间: 2026年8月5日 3:30)
 
-1. [server.py（服务端主程序）](#1-serverpy服务端主程序)
-2. [config.json (配置文件)](#2-configjson配置文件) 
+1. [server.py (服务端主程序)](#1-serverpy-服务端主程序)
+2. [config.json (配置文件)](#2-configjson-配置文件) 
 
 ---
 
-### 1. server.py（服务端主程序）
+### 1. server.py (服务端主程序)
 
 Flask Web 服务端，提供 REST API，管理数据库和照片存储。
 
