@@ -19,7 +19,7 @@ pip install -r requirements.txt
 pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-WinSCP与DB Browser for SQLite下载: [https://wwbwa.lanzoue.com/ipOoc3mlazpc](https://wwbwa.lanzoue.com/ipOoc3mlazpc)
+[WinSCP与DB Browser for SQLite下载](https://wwbwa.lanzoue.com/ipOoc3mlazpc)
 
 ## 函数意义解释
 以下是失物招领管理系统客户端中所有函数的意义解释，按模块划分。(部分内容已过时，仅供参考)(更新时间: 2026年8月5日 3:30)
