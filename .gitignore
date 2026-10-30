@@ -1,5 +1,6 @@
 lost_and_found.db
 images/
+face_db_v4.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

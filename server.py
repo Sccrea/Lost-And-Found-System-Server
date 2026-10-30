@@ -20,6 +20,30 @@ os.makedirs(IMAGES_DIR, exist_ok=True)
 with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
     config = json.load(f)
 
+FACE_DB_PATH = config.get('FACE_DB_PATH', 'face_db_v4.json')
+if not os.path.isabs(FACE_DB_PATH):
+    FACE_DB_PATH = os.path.join(BASE_DIR, FACE_DB_PATH)
+MAX_FACE_IMAGE_BYTES = int(config.get('MAX_FACE_IMAGE_BYTES', 8388608))
+
+_face_recognition_service = None
+_face_recognition_lock = threading.Lock()
+
+
+def get_face_recognition_service():
+    """Create the model on the first request so other server APIs remain available."""
+    global _face_recognition_service
+    if _face_recognition_service is None:
+        with _face_recognition_lock:
+            if _face_recognition_service is None:
+                from face_recognize import FaceRecognitionService
+
+                _face_recognition_service = FaceRecognitionService(
+                    FACE_DB_PATH,
+                    similarity_threshold=config.get('FACE_SIMILARITY_THRESHOLD', 0.35),
+                )
+    return _face_recognition_service
+
+
 # ---------- 数据库初始化（若没有则创建） ----------
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -235,6 +259,36 @@ def api_register():
         'terminal_id': terminal_id,
         'location': location
     }), 200
+
+
+@app.route('/api/face-recognize', methods=['POST'])
+def api_face_recognize():
+    """Recognize a camera frame using the server's private face database."""
+    image = request.files.get('image')
+    if image is None or not image.filename:
+        return jsonify({'error': '缺少图片参数 image'}), 400
+
+    image_bytes = image.stream.read(MAX_FACE_IMAGE_BYTES + 1)
+    if len(image_bytes) > MAX_FACE_IMAGE_BYTES:
+        return jsonify({'error': '图片过大'}), 413
+
+    try:
+        service = get_face_recognition_service()
+    except FileNotFoundError:
+        return jsonify({'error': '服务器人脸库未配置'}), 503
+    except Exception:
+        app.logger.exception('无法初始化人脸识别服务')
+        return jsonify({'error': '服务器人脸识别服务未就绪'}), 503
+
+    try:
+        name = service.recognize(image_bytes)
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    except Exception:
+        app.logger.exception('处理人脸图片失败')
+        return jsonify({'error': '服务器处理人脸图片失败'}), 500
+
+    return jsonify({'recognized': name is not None, 'name': name}), 200
 
 # ---------- 启动服务 ----------
 if __name__ == '__main__':
