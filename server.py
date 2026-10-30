@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, send_from_directory, send_file, request
 import sqlite3
 import os
+import ssl
 import threading
 from datetime import datetime, timedelta
 import json
@@ -119,14 +120,20 @@ def start_cleanup_thread():
 # ---------- 网页路由（保持不变） ----------
 @app.route('/')
 def index():
-    return send_file("webUI0.02.html")
+    return send_file(os.path.join(BASE_DIR, "webUI0.02.html"))
 
 @app.route('/get_data')
 def get_data():
-    """供网页前端获取所有记录（含已取）"""
+    """供网页前端获取所有记录（含已取），并附带终端位置"""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM item_records ORDER BY id DESC")
+    cursor.execute('''
+        SELECT r.id, r.store_time, r.terminal_id, r.photo_name, r.locker_id,
+               r.take_time, r.taker_name, t.location AS terminal_location
+        FROM item_records AS r
+        LEFT JOIN terminals AS t ON r.terminal_id = t.terminal_id
+        ORDER BY r.id DESC
+    ''')
     columns = [desc[0] for desc in cursor.description]
     rows = cursor.fetchall()
     conn.close()
@@ -290,9 +297,56 @@ def api_face_recognize():
 
     return jsonify({'recognized': name is not None, 'name': name}), 200
 
+# ---------- HTTPS 证书 ----------
+def resolve_config_path(value, default):
+    """Resolve a config path against BASE_DIR; absolute paths are kept as-is."""
+    path = value or default
+    if not os.path.isabs(path):
+        path = os.path.join(BASE_DIR, path)
+    return os.path.normpath(path)
+
+
+def build_ssl_context():
+    """Load and validate the certificate/key pair configured in config.json."""
+    cert_file = resolve_config_path(config.get('SSL_CERT_FILE'), 'cert.pem')
+    key_file = resolve_config_path(config.get('SSL_KEY_FILE'), 'key.pem')
+
+    for label, path in (('证书', cert_file), ('私钥', key_file)):
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"HTTPS {label}文件不存在：{path}\n"
+                f"请检查 config.json 中的 SSL_CERT_FILE / SSL_KEY_FILE"
+            )
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    try:
+        context.load_cert_chain(cert_file, key_file)
+    except (ssl.SSLError, OSError) as error:
+        raise RuntimeError(
+            f"HTTPS 证书或私钥无法加载（{cert_file} / {key_file}）：{error}"
+        ) from error
+    return context, cert_file, key_file
+
+
+def main():
+    """Start the HTTPS server using the certificate pair from config.json."""
+    host = config.get('SERVER_HOST', '0.0.0.0')
+    port = int(config.get('SERVER_PORT', 5000))
+    debug = bool(config.get('DEBUG', False))
+
+    ssl_context, cert_file, key_file = build_ssl_context()
+    print(f"使用证书：{cert_file}")
+    print(f"使用私钥：{key_file}")
+    print(f"监听地址：https://{host}:{port}（debug={debug}）")
+
+    start_cleanup_thread()
+    app.run(host=host, port=port, ssl_context=ssl_context, debug=debug)
+
+
 # ---------- 启动服务 ----------
 if __name__ == '__main__':
-    # 启动清理后台线程
-    start_cleanup_thread()
-    # 启动 Flask 应用
-    app.run(host=config.get('SERVER_HOST'), port=config.get('SERVER_PORT'), ssl_context=('cert.pem', 'key.pem'), debug=True)  # 生产环境建议关闭 debug
+    try:
+        main()
+    except (FileNotFoundError, RuntimeError) as error:
+        print(f"[启动失败] {error}")
+        raise SystemExit(1)
