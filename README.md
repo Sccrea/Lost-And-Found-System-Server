@@ -7,6 +7,8 @@
 
 **运行server.py以启动**
 
+也可以在本仓库根目录直接运行 `python run_server.py`，或双击工作目录中的 `start_server.bat`；证书、端口均取自本仓库的 `config.json`。
+
 安装依赖:
 
 ```bash
@@ -28,7 +30,21 @@ pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 1. 安装 `requirements.txt` 中的依赖。首次调用人脸识别接口时，InsightFace 可能会下载 `buffalo_l` 模型；请确保服务器能访问模型下载源，或提前配置好模型缓存。
 2. 把客户端原有的 `face_db_v4.json` 安全地复制到服务端项目根目录。该文件包含姓名和人脸特征，已加入 `.gitignore`，不要将其提交到公开 Git 仓库。
 3. 默认数据库文件名是 `face_db_v4.json`。如需改名或放到其他位置，可修改 `config.json` 的 `FACE_DB_PATH`。
-4. 在客户端 `files/config.json` 设置 `AUTH_METHOD` 为 `1`，并把 `SERVER_URL` 改成这台服务器可访问的 HTTPS 地址。
+4. 在客户端 `files/config.json` 把 `SERVER_URL` 改成这台服务器可访问的 HTTPS 地址；取物只使用人脸识别，无需再配置认证方式。
+
+HTTPS 证书不再写死在代码里，而是由 `config.json` 的 `SSL_CERT_FILE` 和 `SSL_KEY_FILE` 指定（相对路径按服务端目录解析）。例如使用工作目录中的公网证书：
+
+```json
+{
+    "SERVER_HOST": "0.0.0.0",
+    "SERVER_PORT": 5000,
+    "DEBUG": false,
+    "SSL_CERT_FILE": "../sccrea.cc.cd-fullchain.pem",
+    "SSL_KEY_FILE": "../sccrea.cc.cd-privkey.pem"
+}
+```
+
+私钥不要提交到仓库。上面的 `../sccrea...` 是当前公网部署的示例路径，换机器或换证书后请改成实际路径。若通过 frp 等内网穿透暴露服务，`frpc.ini` 的 `localPort` 必须与这里的 `SERVER_PORT` 一致（默认 5000）。
 
 人脸库格式需与旧客户端脚本兼容，例如每条记录包含 `name` 和 `features` 字段：
 
@@ -86,7 +102,7 @@ Flask Web 服务端，提供 REST API，管理数据库和照片存储。
 | 路由 | 方法 | 参数（通过 request） | 返回值 | 意义 |
 |------|------|----------------------|--------|------|
 | `/` | GET | 无 | `webUI0.02.html` 页面 | 提供网页管理界面（旧版，可能用于调试）。 |
-| `/get_data` | GET | 无 | JSON（所有记录列表） | 供前端获取全部存取记录。 |
+| `/get_data` | GET | 无 | JSON（所有记录列表，含 `terminal_location`） | 供前端获取全部存取记录（按 id 倒序，联表 `terminals` 补位置）。 |
 | `/images/<filename>` | GET | `filename`：照片文件名 | 照片文件 | 供客户端下载照片。 |
 | `/api/lockers` | GET | Query: `terminal_id` | JSON（柜子状态字典） | 根据 `terminal_id` 返回该终端下 1‑8 号柜的占用状态（`status`、`terminal_id`、`photo_name`）。 |
 | `/api/store` | POST | Form: `terminal_id`, `locker_id`, `photo` (文件) | JSON（含 `message`, `photo_name`, `id`） | 接收照片和柜号，保存照片（以记录 ID 命名），插入数据库记录，返回成功信息。 |
@@ -106,6 +122,12 @@ Flask Web 服务端，提供 REST API，管理数据库和照片存储。
 |------|------|------|
 | `CLEANUP_DAYS` | int | 自动清理天数：已取物品记录保留 `CLEANUP_DAYS` 天后将被删除（连同照片）。默认 127。 |
 | `SERVER_HOST` | str | Flask 服务绑定的 IP 地址，`"0.0.0.0"` 表示监听所有网络接口。 |
-| `SERVER_PORT` | int | Flask 服务监听的端口号，默认 5000。 |
+| `SERVER_PORT` | int | Flask 服务监听的端口号，默认 5000；需与内网穿透的 `localPort` 一致。 |
+| `DEBUG` | bool | 是否开启 Flask 调试模式，默认 `false`。公网部署请保持关闭。 |
+| `SSL_CERT_FILE` | str | HTTPS 证书文件路径（可含中间证书链），相对路径按服务端目录解析，默认 `cert.pem`。 |
+| `SSL_KEY_FILE` | str | HTTPS 私钥文件路径，相对路径按服务端目录解析，默认 `key.pem`。 |
+| `FACE_DB_PATH` | str | 人脸库 JSON 路径，默认 `face_db_v4.json`。 |
+| `FACE_SIMILARITY_THRESHOLD` | float | 人脸余弦相似度阈值，默认 0.35。 |
+| `MAX_FACE_IMAGE_BYTES` | int | 单张上传画面的大小上限（字节），默认 8 MB。 |
 
 ---

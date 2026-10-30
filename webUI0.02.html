@@ -2,51 +2,340 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>失物招领</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>失物招领管理</title>
     <style>
-        *{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
-        body{background:#f5f5f5;padding:30px;}
-        .title{text-align:center;margin-bottom:30px;color:#333}
-        #list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;max-width:1200px;margin:0 auto;}
-        .card{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
-        .card img{width:100%;height:200px;object-fit:cover;border-radius:8px;margin-top:12px}
-        .card p{margin:8px 0;color:#666}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+            background: #f1f5f9;
+            color: #1f2937;
+            padding: 24px;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 1280px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 18px;
+        }
+        h1 { font-size: 26px; letter-spacing: 1px; }
+        .sub { margin-top: 6px; color: #64748b; font-size: 13px; }
+        .refresh {
+            border: 0;
+            border-radius: 10px;
+            background: #4a90e2;
+            color: #fff;
+            font-size: 14px;
+            padding: 10px 22px;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .refresh:hover { background: #357abd; }
+        .refresh:active { transform: translateY(1px); }
+
+        .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+        .stat {
+            background: #fff;
+            border-radius: 12px;
+            padding: 10px 18px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, .08);
+            min-width: 96px;
+        }
+        .stat span { display: block; color: #64748b; font-size: 12px; margin-bottom: 4px; }
+        .stat b { font-size: 20px; }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+        .search {
+            flex: 1 1 260px;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 14px;
+            outline: none;
+            background: #fff;
+        }
+        .search:focus { border-color: #4a90e2; box-shadow: 0 0 0 3px rgba(74, 144, 226, .15); }
+        .filters { display: flex; gap: 8px; }
+        .filter {
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #475569;
+            padding: 9px 18px;
+            border-radius: 10px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .filter.active { background: #1e293b; border-color: #1e293b; color: #fff; }
+
+        #list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+            gap: 18px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, .07);
+            transition: transform .15s, box-shadow .15s;
+            display: flex;
+            flex-direction: column;
+        }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(15, 23, 42, .12); }
+        .photo-wrap {
+            position: relative;
+            height: 200px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .photo-wrap a { display: block; width: 100%; height: 100%; }
+        .photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .photo-empty {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+        .badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            color: #fff;
+            letter-spacing: 1px;
+        }
+        .badge.free { background: #16a34a; }
+        .badge.taken { background: #64748b; }
+        .card-body { padding: 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .card-body h3 { font-size: 18px; margin-bottom: 2px; }
+        .row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+        .row span { color: #64748b; flex: none; }
+        .row b { color: #1f2937; font-weight: 600; text-align: right; word-break: break-all; }
+        .taken-info {
+            margin-top: 4px;
+            padding-top: 10px;
+            border-top: 1px dashed #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #94a3b8;
+            padding: 60px 20px;
+            font-size: 15px;
+        }
+        .footer { text-align: center; color: #94a3b8; font-size: 12px; margin-top: 22px; }
+        @media (max-width: 520px) {
+            body { padding: 14px; }
+            h1 { font-size: 21px; }
+            .photo-wrap { height: 180px; }
+        }
     </style>
 </head>
 <body>
-    <h1 class="title">失物招领列表</h1>
-    <div id="list">加载中...</div>
+<div class="wrap">
+    <header>
+        <div>
+            <h1>失物招领管理</h1>
+            <p class="sub">数据来自服务端数据库，点击刷新获取最新记录</p>
+        </div>
+        <button id="refresh" class="refresh" type="button">刷新</button>
+    </header>
 
-    <script>
-        // 只加载一次！绝对不刷新！
-        window.addEventListener('DOMContentLoaded', async function() {
-            const list = document.getElementById('list');
-            try {
-                const res = await fetch("/get_data");
-                const data = await res.json();
-                list.innerHTML = "";
+    <div class="stats" id="stats"></div>
 
-                data.forEach(item => {
-                    const div = document.createElement('div');
-                    div.className = "card";
+    <div class="toolbar">
+        <input id="search" class="search" type="search" placeholder="搜索柜号、终端、位置、取物人、时间…">
+        <div class="filters">
+            <button class="filter active" data-filter="all" type="button">全部</button>
+            <button class="filter" data-filter="free" type="button">未取</button>
+            <button class="filter" data-filter="taken" type="button">已取</button>
+        </div>
+    </div>
 
-                    const item_type = item.item_type || "无物品";
-                    const locker_id = item.locker_id || "无柜号";
-                    const photo_name = item.photo_name || "";
+    <main id="list" aria-live="polite"></main>
+    <footer class="footer" id="footer"></footer>
+</div>
 
-                    // 🔥 正确图片路径
-                    div.innerHTML = `
-                        <h3>${item_type}</h3>
-                        <p>柜号：${locker_id}</p>
-                        <img src="/images/${photo_name}" alt="物品图片">
-                    `;
-                    list.appendChild(div);
-                });
-            } catch (e) {
-                list.innerHTML = "加载失败：" + e.toString();
-                console.error(e);
-            }
+<script>
+    const state = { records: [], filter: "all", query: "" };
+
+    const listEl = document.getElementById("list");
+    const statsEl = document.getElementById("stats");
+    const footerEl = document.getElementById("footer");
+    const searchEl = document.getElementById("search");
+
+    function make(tag, className, text) {
+        const el = document.createElement(tag);
+        if (className) el.className = className;
+        if (text !== undefined) el.textContent = text;
+        return el;
+    }
+
+    function display(value) {
+        return value === null || value === undefined || value === "" ? "—" : String(value);
+    }
+
+    function isTaken(record) {
+        return Boolean(record.take_time);
+    }
+
+    function addRow(parent, label, value) {
+        const row = make("div", "row");
+        row.appendChild(make("span", "", label));
+        row.appendChild(make("b", "", display(value)));
+        parent.appendChild(row);
+    }
+
+    function buildCard(record) {
+        const card = make("article", "card");
+        const photo = make("div", "photo-wrap");
+
+        if (record.photo_name) {
+            const link = document.createElement("a");
+            link.href = "/images/" + encodeURIComponent(record.photo_name);
+            link.target = "_blank";
+            link.rel = "noopener";
+            const img = document.createElement("img");
+            img.loading = "lazy";
+            img.alt = "物品照片";
+            img.src = "/images/" + encodeURIComponent(record.photo_name);
+            img.addEventListener("error", function () {
+                img.remove();
+                photo.appendChild(make("div", "photo-empty", "图片无法加载"));
+            });
+            link.appendChild(img);
+            photo.appendChild(link);
+        } else {
+            photo.appendChild(make("div", "photo-empty", "无照片"));
+        }
+
+        photo.appendChild(
+            make("span", "badge " + (isTaken(record) ? "taken" : "free"), isTaken(record) ? "已取" : "未取")
+        );
+        card.appendChild(photo);
+
+        const body = make("div", "card-body");
+        body.appendChild(make("h3", "", display(record.locker_id) + " 号柜"));
+        addRow(body, "终端", record.terminal_id);
+        addRow(body, "位置", record.terminal_location);
+        addRow(body, "存入时间", record.store_time);
+
+        if (isTaken(record)) {
+            const taken = make("div", "taken-info");
+            addRow(taken, "取物人", record.taker_name);
+            addRow(taken, "取物时间", record.take_time);
+            body.appendChild(taken);
+        }
+
+        card.appendChild(body);
+        return card;
+    }
+
+    function renderStats() {
+        const taken = state.records.filter(isTaken).length;
+        statsEl.replaceChildren(
+            makeStat("全部记录", state.records.length),
+            makeStat("未取", state.records.length - taken),
+            makeStat("已取", taken)
+        );
+    }
+
+    function makeStat(label, value) {
+        const box = make("div", "stat");
+        box.appendChild(make("span", "", label));
+        box.appendChild(make("b", "", String(value)));
+        return box;
+    }
+
+    function visibleRecords() {
+        const query = state.query.trim().toLowerCase();
+        return state.records.filter(function (record) {
+            const taken = isTaken(record);
+            if (state.filter === "free" && taken) return false;
+            if (state.filter === "taken" && !taken) return false;
+            if (!query) return true;
+            const haystack = [
+                record.id,
+                record.locker_id,
+                record.terminal_id,
+                record.terminal_location,
+                record.taker_name,
+                record.store_time,
+                record.take_time
+            ].map(function (value) { return String(value === null || value === undefined ? "" : value); });
+            return haystack.some(function (text) { return text.toLowerCase().includes(query); });
         });
-    </script>
+    }
+
+    function render() {
+        renderStats();
+        const records = visibleRecords();
+        listEl.replaceChildren();
+
+        if (records.length === 0) {
+            listEl.appendChild(
+                make("div", "empty", state.records.length === 0 ? "暂无记录" : "没有符合条件的记录")
+            );
+        } else {
+            records.forEach(function (record) { listEl.appendChild(buildCard(record)); });
+        }
+
+        footerEl.textContent = "显示 " + records.length + " / " + state.records.length + " 条记录";
+    }
+
+    async function load() {
+        listEl.replaceChildren(make("div", "empty", "加载中…"));
+        try {
+            const response = await fetch("/get_data", { cache: "no-store" });
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            const data = await response.json();
+            if (!Array.isArray(data)) throw new Error("返回数据格式不正确");
+            state.records = data;
+            render();
+        } catch (error) {
+            listEl.replaceChildren(make("div", "empty", "加载失败：" + error.message));
+            statsEl.replaceChildren();
+            footerEl.textContent = "";
+        }
+    }
+
+    document.getElementById("refresh").addEventListener("click", load);
+
+    searchEl.addEventListener("input", function (event) {
+        state.query = event.target.value;
+        render();
+    });
+
+    document.querySelectorAll(".filter").forEach(function (button) {
+        button.addEventListener("click", function () {
+            document.querySelectorAll(".filter").forEach(function (item) {
+                item.classList.remove("active");
+            });
+            button.classList.add("active");
+            state.filter = button.dataset.filter;
+            render();
+        });
+    });
+
+    load();
+</script>
 </body>
 </html>
